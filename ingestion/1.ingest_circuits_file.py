@@ -30,7 +30,7 @@ circuits_schema = StructType(fields = [
 circuits_df = spark.read \
     .option("header", True) \
     .schema(circuits_schema) \
-    .csv("dbfs:/mnt/f1winterdl/raw/circuits.csv")
+    .csv("/mnt/f1winterdl/raw/circuits.csv")
 
 # COMMAND ----------
 
@@ -43,4 +43,38 @@ circuits_df.printSchema()
 
 # COMMAND ----------
 
-#
+from pyspark.sql.functions import col
+# select and rename columns
+circuits_selected_df = circuits_df.select(
+    col("circuitId").alias("circuit_id"),
+    col("circuitRef").alias("circuit_ref"),
+    col("name"),
+    col("location"),
+    col("country"),
+    col("lat"),
+    col("lng"),
+    col("alt")
+)
+
+# COMMAND ----------
+
+# another way to rename columns in 
+circuits_renamed_df = circuits_selected_df.withColumnRenamed("lat", "latitude") \
+    .withColumnRenamed("lng", "longitude") \
+    .withColumnRenamed("alt", "altitude")
+
+# COMMAND ----------
+
+# Track ingestion date (take current timestamp as a new column)
+from pyspark.sql.functions import current_timestamp, lit
+circuits_final_df = circuits_renamed_df.withColumn("ingestion_date", current_timestamp())
+display(circuits_final_df)
+
+# COMMAND ----------
+
+# write to datalake as a parquet
+circuits_final_df.write.parquet("/mnt/f1winterdl/processed/circuits", mode="overwrite")
+
+# COMMAND ----------
+
+display(spark.read.parquet("/mnt/f1winterdl/processed/circuits"))
